@@ -17,9 +17,9 @@ logging.basicConfig(level=logging.ERROR)
 # In[2]:
 
 
-max_length = 400
-batch_size = 32
-epochs = 2
+max_length = 200
+batch_size = 4
+epochs = 3
 
 df = pd.read_csv('Train.csv')
 
@@ -217,7 +217,7 @@ def get_model():
     bert_model = transformers.TFBertModel.from_pretrained("bert-base-uncased")
 
     # Freeze the BERT model to reuse the pretrained features without modifying them.
-    bert_model.trainable = False
+    bert_model.trainable = True
 
     sequence_output, pooled_output = bert_model(
         input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids
@@ -495,14 +495,14 @@ for col in range(len(LABELS)):
 # In[77]:
 
 
-tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']).to_csv("final.csv", index=False)
+tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']).to_csv("final1.csv", index=False)
 
 
 # In[78]:
 
 
 import pickle as pkl
-pkl.dump(i, open('i.pkl', 'wb'))
+pkl.dump(i, open('i1.pkl', 'wb'))
 
 
 # In[ ]:
