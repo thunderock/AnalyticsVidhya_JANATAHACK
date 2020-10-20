@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 import numpy as np
 import os
 import pandas as pd
@@ -15,17 +9,17 @@ import pickle as pkl
 import gc
 import logging
 import warnings
+import time
+
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.ERROR)
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
-
-# In[ ]:
-
+gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpus[0], True)
 
 max_length = 400
-batch_size = 32
-epochs = 3
+batch_size = 64
+epochs = 1
 
 df = pd.read_csv('Train.csv')
 
@@ -35,78 +29,26 @@ y = df.iloc[:, 6: 6 + 25]
 LABELS = y.columns
 
 
-# In[ ]:
-
-
 train_X, test_X, train_y, test_y = train_test_split(X, y, shuffle=True, test_size=.2)
-
 train_X.shape, train_y.shape, test_X.shape, test_y.shape
 
 
-# In[ ]:
-
-
 del train_X, train_y
-X
-
-
-# In[ ]:
-
-
-y
-
-
-# In[ ]:
 
 
 
 X = X.reset_index(drop=True)
 y = y.reset_index(drop=True)
-# train_y = train_y.reset_index(drop=True)
 test_y = test_y.reset_index(drop=True)
-# train_X = train_X.reset_index(drop=True)
 test_X = test_X.reset_index(drop=True)
 
 
-# In[ ]:
-
-
-test_X.head(5)
-
-
-# In[ ]:
-
-
-test_y
-
-
-# In[ ]:
-
-
-# train_y = train_y.values
 test_y = test_y.values
 y = y.values
-test_y
 
-
-# In[ ]:
 
 
 class BertSemanticDataGenerator(tf.keras.utils.Sequence):
-    """Generates batches of data.
-
-    Args:
-        sentence_pairs: Array of premise and hypothesis input sentences.
-        labels: Array of labels.
-        batch_size: Integer batch size.
-        shuffle: boolean, whether to shuffle the data.
-        include_targets: boolean, whether to incude the labels.
-
-    Returns:
-        Tuples `([input_ids, attention_mask, `token_type_ids], labels)`
-        (or just `[input_ids, attention_mask, `token_type_ids]`
-         if `include_targets=False`)
-    """
 
     def __init__(
         self,
@@ -146,13 +88,13 @@ class BertSemanticDataGenerator(tf.keras.utils.Sequence):
             return_tensors="tf",
         )
 
-        
+
         input_ids = np.array(encoded["input_ids"], dtype="int32")
-        
+
         dept_ids = np.array(self.depts[indexes], dtype="int32")
         attention_masks = np.array(encoded["attention_mask"], dtype="int32")
         token_type_ids = np.array(encoded["token_type_ids"], dtype="int32")
-        
+
         if self.include_targets:
             labels = np.array(self.labels[indexes], dtype="int32")
             return [input_ids, dept_ids, attention_masks, token_type_ids], labels
@@ -162,39 +104,6 @@ class BertSemanticDataGenerator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         if self.shuffle:
             np.random.RandomState(42).shuffle(self.indexes)
-
-
-# In[ ]:
-
-
-X.iloc[:,1:6].columns, y.shape
-
-
-# In[ ]:
-
-
-def reset_keras():
-    sess = KK.get_session()
-    KK.clear_session()
-    sess.close()
-    sess = KK.get_session()
-
-#     try:
-#         del classifier # this is from global space - change this as you need
-#     except:
-#         pass
-
-    print(gc.collect()) # if it does something you should see a number as output
-
-    # use the same config as you used to create the session
-    config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 1
-    config.gpu_options.visible_device_list = "0"
-    set_session(tf.Session(config=config))
-    
-
-
-# In[ ]:
 
 
 def recall_m(y_true, y_pred):
@@ -215,13 +124,12 @@ def f1_m(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
-# In[ ]:
 
 
 strategy = tf.distribute.MirroredStrategy()
 
 with strategy.scope():
-    
+
     input_ids = tf.keras.layers.Input(
         shape=(max_length,), dtype=tf.int32, name="input_ids"
     )
@@ -267,16 +175,12 @@ with strategy.scope():
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
-        loss="categorical_crossentropy",
+        loss="binary_crossentropy",
         metrics=["acc", f1_m],
     )
-    
+
 print(f"Strategy: {strategy}")
 model.summary()
-
-
-# In[ ]:
-
 
 
 val_data = BertSemanticDataGenerator(
@@ -297,43 +201,33 @@ data = BertSemanticDataGenerator(
 )
 
 
-# In[ ]:
 
 
-X.iloc[:,1:6]
-
-
-# In[ ]:
-
-
+print("training model")
 history = model.fit(
     data,
     validation_data=val_data,
     shuffle=True,
     epochs=epochs,
-#     use_multiprocessing=True,
-#     workers=-1,
 )
 
-
-# In[ ]:
-
-
 K.clear_session()
-# Unfreeze the bert_model.
+gc.collect()
+print("sleeping")
+time.sleep(60)
+
+
 bert_model.trainable = True
-# Recompile the model to make the change effective.
 model.compile(
     optimizer=tf.keras.optimizers.Adam(1e-5),
-    loss="categorical_crossentropy",
+    loss="binary_crossentropy",
     metrics=["acc", f1_m],
 )
 model.summary()
 
 
-# In[ ]:
 
-
+epochs = 1
 batch_size = 4
 val_data = BertSemanticDataGenerator(
     test_X['ABSTRACT'].values.astype("str"),
@@ -352,20 +246,13 @@ data = BertSemanticDataGenerator(
     shuffle=True,
 )
 
-
-# In[ ]:
-
+print("training trainable bert model")
 
 history = model.fit(
     data,
     validation_data=val_data,
     epochs=epochs,
-    #use_multiprocessing=True,
-    #workers=-1,
 )
-
-
-# In[ ]:
 
 
 val_data = BertSemanticDataGenerator(
@@ -377,109 +264,37 @@ val_data = BertSemanticDataGenerator(
 )
 
 
+print("predicting validation data")
 preds = model.predict_generator(val_data, verbose=1, use_multiprocessing=True)
 
 
-# In[ ]:
 
 
-pkl.dump(test_y, open("val_original.pkl", "rb"))
-pkl.dump(preds, open("val_preds.pkl", "rb"))
+print("evaluating validation data")
+pkl.dump(test_y, open("val_original.pkl", "wb"))
+pkl.dump(preds, open("val_preds.pkl", "wb"))
 model.evaluate(val_data, verbose=1)
 
 
-# In[ ]:
-
-
-# def check_similarity(sentence, depts):
-# #     sentence_pairs = np.array([[str(sentence1), str(sentence2)]])
-#     test_data = BertSemanticDataGenerator(
-#         np.array(sentence), depts, labels=None, batch_size=1, shuffle=False, include_targets=False,
-#     )
-
-#     proba = model.predict(test_data)[0]
-#     idx = np.argmax(proba)
-#     proba = f"{proba[idx]: .2f}%"
-#     pred = labels[idx]
-#     return pred, proba
-
-
-# In[ ]:
-
-
-# s = train_X.iloc[0]['ABSTRACT']
-# d = train_X.iloc[:,1:6].iloc[0].values
-# check_similarity(s, d)
-# # sentence2 = "Two women are standing with their eyes closed."
-# # check_similarity(sentence1, sentence2)
-
-
-# In[ ]:
-
-
-# sentence1 = "A smiling costumed woman is holding an umbrella"
-# sentence2 = "A happy woman in a fairy costume holds an umbrella"
-# check_similarity(sentence1, sentence2)
-
-
-# In[ ]:
-
-
-# sentence1 = "A soccer game with multiple males playing"
-# sentence2 = "Some men are playing a sport"
-# check_similarity(sentence1, sentence2)
-
-
-# In[ ]:
-
-
-# model.save("model.h5")
-# print("Saved model to disk")
-
-
-# In[ ]:
-
-
 tdf = pd.read_csv("Test.csv")
-# df = df.iloc[:, 1: 6]
-tdf.iloc[:, 2: 6].head(5)
-
-
-# In[ ]:
-
-
-tdf.shape
-
-
-# In[ ]:
-
 
 
 val_data = BertSemanticDataGenerator(
     tdf['ABSTRACT'].values.astype("str"),
     tdf.iloc[:,2:6].values.astype("int32"),
-    # None,
     batch_size=2,
     labels=None,
-    shuffle=False, 
+    shuffle=False,
     include_targets=False
 )
 
 
-
-# In[ ]:
-
-
+print("predicting test data")
 preds = model.predict_generator(val_data, verbose=1, use_multiprocessing=True)
 
 
-# In[ ]:
-
-
-preds.shape, tdf.shape
-
-
-# In[ ]:
+print("final predictions")
+print(preds)
 
 
 cnt = {}
@@ -489,18 +304,12 @@ for x in y:
         if xx == 1: ones += 1
     if ones in cnt: cnt[ones] += 1
     else: cnt[ones] = 1
-for x in cnt: 
+for x in cnt:
     print(x, cnt[x] / sum(cnt.values()))
-
-
-# In[ ]:
-
 
 
 THRESHOLD = .17
 
-
-# In[ ]:
 
 
 cnt2 = {}
@@ -510,45 +319,18 @@ for x in preds:
         if xx > THRESHOLD: ones += 1
     if ones in cnt2: cnt2[ones] += 1
     else: cnt2[ones] = 1
-for x in cnt2: 
+for x in cnt2:
     print(x, cnt2[x] / sum(cnt2.values()))
 
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-tdf.head(5)
-
-
-# In[ ]:
 
 
 for col in range(len(LABELS)):
     tdf[LABELS[col]] = [1 if x[col] > THRESHOLD else 0 for x in preds]
-    
 
-
-# In[ ]:
 
 
 tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']).to_csv("final.csv", index=False)
 
 
-# In[ ]:
-
-
 
 pkl.dump(preds, open('pred_proba.pkl', 'wb'))
-
-
-# In[ ]:
-
-
-
-
