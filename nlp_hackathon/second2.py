@@ -127,7 +127,7 @@ def f1_m(y_true, y_pred):
 
 
 # strategy = tf.distribute.MirroredStrategy()
-# 
+#
 # with strategy.scope():
 
 input_ids = tf.keras.layers.Input(
@@ -158,10 +158,13 @@ sequence_output, pooled_output = bert_model(
     input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids
 )
 
+cv1 = tf.keras.layers.Conv1D(100, kernel_size=3, padding='same', kernel_initializer='he_uniform')(sequence_output)
+cv2 = tf.keras.layers.Conv1D(100, kernel_size=2, padding='same', kernel_initializer='he_uniform')(cv1)
+
 # Add trainable layers on top of frozen layers to adapt the pretrained features on the new data.
 bi_lstm = tf.keras.layers.Bidirectional(
-    tf.keras.layers.LSTM(64, return_sequences=True)
-)(sequence_output)
+    tf.keras.layers.LSTM(32, return_sequences=True)
+)(cv2)
 
 # Applying hybrid pooling approach to bi_lstm sequence output.
 avg_pool = tf.keras.layers.GlobalAveragePooling1D()(bi_lstm)
@@ -270,8 +273,8 @@ preds = model.predict_generator(val_data, verbose=1, use_multiprocessing=True)
 
 
 print("evaluating validation data")
-pkl.dump(test_y, open("val_original.pkl", "wb"))
-pkl.dump(preds, open("val_preds.pkl", "wb"))
+pkl.dump(test_y, open("val_original1.pkl", "wb"))
+pkl.dump(preds, open("val_preds1.pkl", "wb"))
 model.evaluate(val_data, verbose=1)
 
 
@@ -332,4 +335,4 @@ tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Sta
 
 
 
-pkl.dump(preds, open('pred_proba.pkl', 'wb'))
+pkl.dump(preds, open('pred_proba1.pkl', 'wb'))
