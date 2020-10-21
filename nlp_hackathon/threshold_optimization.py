@@ -5,9 +5,9 @@ import sys
 import pandas as pd
 
 
-pred = '/tmp/val_preds1.pkl'
-y = '/tmp/val_original1.pkl'
-final_pred = '/tmp/pred_proba1.pkl'
+pred = '/tmp/val_preds.pkl'
+y = '/tmp/val_original.pkl'
+final_pred = '/tmp/pred_proba.pkl'
 
 
 pred = pkl.load(open(pred, 'rb'))
