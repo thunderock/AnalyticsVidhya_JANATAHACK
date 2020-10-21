@@ -18,9 +18,9 @@ logging.basicConfig(level=logging.ERROR)
 gpus = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(gpus[0], True)
 
-max_length = 600
-batch_size = 64
-epochs = 5
+max_length = 512
+batch_size = 32
+epochs = 4
 
 df = pd.read_csv('Train.csv')
 
@@ -67,8 +67,8 @@ class BertSemanticDataGenerator(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.include_targets = include_targets
         self.tokenizer = transformers.BertTokenizer.from_pretrained(
-            "bert-base-uncased", do_lower_case=True
-        )
+            "bert-base-uncased", do_lower_case=True, max_length=2048
+            )
         self.indexes = np.arange(len(self.sentences))
         self.on_epoch_end()
 
