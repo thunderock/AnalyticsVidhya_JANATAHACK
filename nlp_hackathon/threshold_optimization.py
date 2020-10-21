@@ -20,8 +20,8 @@ counts = [0] * 25
 y_trues = [0] * 25
 
 def get_current_loss(p_col, true_col, th):
-    p_col = sum(p_col > th)
-    true_col = sum(true_col > th)
+    p_col = sum(p_col > th) / len(p_col)
+    true_col = sum(true_col) / len(true_col)
     return abs(p_col - true_col)
 
 for col in range(25):
@@ -34,9 +34,9 @@ for col in range(25):
         if  temp_loss < current_loss:
             thresholds[col] = threshold
             current_loss = temp_loss
-            counts[col] = sum(pred_col > threshold)
-            y_trues[col] = sum(y_col > threshold)
-            # print(col, current_loss, thresholds[col], counts[col], y_trues[col])
+            counts[col] = sum(pred_col > threshold) / len(pred_col)
+            y_trues[col] = sum(y_col) / len(y_col)
+            print(col, current_loss, thresholds[col], counts[col], y_trues[col])
 
 print(thresholds)
 print(counts)
