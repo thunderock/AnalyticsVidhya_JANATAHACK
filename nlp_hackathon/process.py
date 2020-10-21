@@ -4,8 +4,8 @@ import pandas as pd
 import pickle as pkl
 
 
-filename = "i1.pkl"
-THRESHOLD = .15
+filename = "/tmp/pred_proba1.pkl"
+THRESHOLD = .25
 
 df = pd.read_csv('Train.csv')
 
@@ -52,5 +52,5 @@ for col in range(len(LABELS)):
     
 
 
-tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']).to_csv("final.csv", index=False)
+tdf.drop(columns=['ABSTRACT', 'Computer Science', 'Mathematics', 'Physics', 'Statistics']).to_csv("/tmp/final.csv", index=False)
 
