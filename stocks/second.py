@@ -30,7 +30,8 @@ def do_stock(dframe):
     # print(id)
 
     df_extra = extract_features(dframe.drop(columns=['stock', 'unpredictability_score', 'Close']), column_id = 'ID',
-                            column_sort='Date', show_warnings=False, impute_function=impute, disable_progressbar=True)
+                            column_sort='Date', show_warnings=False, impute_function=impute, disable_progressbar=True,
+                            n_jobs=0)
 
     df_extra['stock'] = stock
     df_extra['unpredictability_score'] = unpredictability_score
