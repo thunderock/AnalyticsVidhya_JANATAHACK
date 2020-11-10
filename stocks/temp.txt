@@ -1,0 +1,5 @@
+Hi Vivek,
+
+For Data Acquisition to able to publish coverage and various other repo health metrics we wanted to use sonarscanner. For same please approve this request.
+
+Though in future we plan to onboard to CI as well, currently we only want to able run these from local because we already have CI integration with our own managed jenkins http://jenkins.swiss.swiggyops.de:8080/ .
