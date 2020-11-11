@@ -17,8 +17,6 @@ result_file = 'result.csv'
 
 
 df = pd.read_csv(train_file, low_memory=False, parse_dates=['Date'])
-tdf = pd.read_csv(test_file, low_memory=False, parse_dates=['Date'])
-sub = pd.read_csv(submission_file, index_col='ID')
 
 
 def do_stock(dframe):
@@ -29,7 +27,7 @@ def do_stock(dframe):
     # close = dframe['Close']
     # print(id)
 
-    df_extra = extract_features(dframe.drop(columns=['stock', 'unpredictability_score', 'Close']), column_id = 'ID',
+    df_extra = extract_features(dframe.drop(columns=['stock', 'unpredictability_score']), column_id = 'ID',
                             column_sort='Date', show_warnings=False, impute_function=impute, disable_progressbar=True,
                             n_jobs=0)
 
@@ -48,12 +46,10 @@ num_cores = 7
 
 rows = Parallel(n_jobs=num_cores)(delayed(do_stock)(df[df['stock'] == i]) for i in tqdm(df.stock.unique(), total=len(df.stock.unique())))
 
-# rows = [do_stock(df[df['stock'] == i]) for i in tqdm([1], total=1)]
-# print(rows[0].ID)
 df_extra = pd.concat(rows, axis=0)
 
 
 
 print(df_extra.shape, df.shape)
 
-df_extra.to_csv(result_file, index=False)
+df_extra.to_csv(result_file)
