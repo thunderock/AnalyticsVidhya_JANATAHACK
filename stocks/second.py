@@ -10,9 +10,7 @@ from joblib import Parallel, delayed
 
 
 
-train_file = 'Train.csv'
-test_file = 'Test.csv'
-submission_file = 'SampleSubmission.csv'
+train_file = 'super_train.csv'
 result_file = 'result.csv'
 
 
@@ -27,7 +25,7 @@ def do_stock(dframe):
     # close = dframe['Close']
     # print(id)
 
-    df_extra = extract_features(dframe.drop(columns=['stock', 'unpredictability_score']), column_id = 'ID',
+    df_extra = extract_features(dframe.drop(columns=['stock', 'unpredictability_score', 'Close']), column_id = 'ID',
                             column_sort='Date', show_warnings=False, impute_function=impute, disable_progressbar=True,
                             n_jobs=0)
 
@@ -35,9 +33,6 @@ def do_stock(dframe):
     df_extra['unpredictability_score'] = unpredictability_score
     dframe.set_index('ID', drop=False, inplace=True)
     df_extra['Date'] = dframe['Date']
-    # print(df_extra['ID'])
-    # print(df_extra['ID'])
-    # df_extra['ID'] = dframe['ID']
     df_extra['close'] = dframe['Close']
     return df_extra
 
