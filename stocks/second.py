@@ -35,7 +35,7 @@ def do_stock(dframe):
     df_extra['Open'] = dframe['Open']
     return df_extra
 
-num_cores = 7
+num_cores = 4
 
 
 # rows = Parallel(n_jobs=num_cores)(delayed(do_stock)(df[df['stock'] == i]) for i in tqdm([1], total=1))
