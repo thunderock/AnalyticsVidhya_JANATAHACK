@@ -94,7 +94,7 @@ X_test, y_test = df[df['Close'].isna()].drop(columns=['Close', 'Open', 'High', '
 
 model_store1 = [0] * 103
 metrics1 = [0] * 103
-df = None
+# df = None
 
 grid = {'learning_rate': [.1, .2, .3, .4], 'depth': [1, 2, 3, 4, 5], 'iterations': [200, 400, 600, 800, 1000]}
 preds1 = []
