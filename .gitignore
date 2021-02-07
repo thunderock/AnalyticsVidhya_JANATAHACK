@@ -16,4 +16,5 @@ cache_dir*
 runs*
 outputs*
 *.jovianrc
+*.csv
 
