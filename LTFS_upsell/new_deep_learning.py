@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -129,8 +126,6 @@ num_cores = 7
 # In[11]:
 
 
-df.loc[:, df.columns != 'ID'].sample(10).values
-
 
 # In[12]:
 
@@ -138,7 +133,7 @@ df.loc[:, df.columns != 'ID'].sample(10).values
 def encode_df_for_user(dframe):
     
     ret = dframe.loc[:, df.columns != 'ID'].values
-    ret = np.pad(ret,(((max_window - ret.shape[0]),0),(0, 0)), 'constant')
+    ret = np.pad(ret,(((max_window - ret.shape[0]),0),(0, 0)), 'constant', constant_values=-1)
 #     ret = np.array(tf.keras.preprocessing.sequence.pad_sequences(ret, maxlen=max_window, padding='pre'))
     assert ret.shape == (max_window,205), ret.shape
     return ret
@@ -180,10 +175,9 @@ for col in tqdm(train_cat_cols):
 
     else: train_label_encoders[col].fit(train_df[col].append(test_df[col]).fillna(fill_val))
 
-target_encoder.fit(train_df[target_col])
+target_encoder.fit(train_df[target_col[0]])
 
 def train_encode_cat_cols(x, col, tpe):
-
     if pd.isnull(x): 
         if tpe == "object": x = str(x)
         elif tpe == "int64": x = -1
@@ -212,9 +206,6 @@ def encode_date_cols(x):
         return [-1, -1, -1, -1, -1]
     else:
         return np.array([x.hour, x.minute, x.day, x.month, x.year], dtype=np.float64)
-
-
-# In[14]:
 
 
 train_max_len = 36
@@ -353,30 +344,26 @@ class DataGenerator(keras.utils.Sequence):
                 
         if self.test:
             return X
-#         print(X)
         y = target_encoder.transform(y)
         y = keras.utils.to_categorical(y, num_classes=self.n_classes)
         return X, y
 
 
-# In[17]:
 
 
-val_size = .2
-ids = train_df["ID"].unique()
+val_size = .15
+ids = train_df["ID"].values
 np.random.shuffle(ids)
 sp = int((1. - val_size) * ids.shape[0])
 tr_ids, val_ids = ids[: sp], ids[sp:]
 
 
-# In[18]:
 
 
 train_gen = DataGenerator(tr_ids)
 val_gen = DataGenerator(val_ids)
 
 
-# In[19]:
 
 
 def generate_datasets_to_test(train_dframe, bureau_df):
@@ -386,9 +373,6 @@ def generate_datasets_to_test(train_dframe, bureau_df):
     X_br = Parallel(n_jobs=num_cores)(delayed(encode_df_for_user)(bureau_df[bureau_df.ID == i]) for i in tqdm(tr_ids, total=len(tr_ids)))
     
     return np.array(X), np.array(X_br)
-
-
-# In[20]:
 
 
 def f1(y_true, y_pred):
@@ -420,9 +404,6 @@ def f1_loss(y_true, y_pred):
     return 1 - K.mean(f1)
 
 
-# In[21]:
-
-
 def get_model():
     train_in = Input(shape=(train_max_len, ))
     train_int = Dense(36,activation="relu")(train_in)
@@ -431,20 +412,17 @@ def get_model():
     bureau_int = LSTM(128, kernel_initializer='he_uniform', return_sequences=True)(bureau_in)
     bureau_int = LSTM(64, kernel_initializer='he_uniform', return_sequences=True)(bureau_int)
     bureau_int = LSTM(36, kernel_initializer='he_uniform', return_sequences=True)(bureau_int)
-#     bureau_int = Reshape((420, 36,))(bureau_int)
-#     bureau_int = Dense(32,activation="relu")(bureau_int)
     bureau_int = Flatten()(bureau_int)
     x = Concatenate()([train_int, bureau_int])
-#     x = Merge([train_int, bureau_int], mode='concat')
     x = Dropout(.2, seed=42)(x)
-    
     x = Dense(32,activation="relu")(x)
     output = Dense(7, activation="softmax")(x)
     model = Model([train_in, bureau_in], output)
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=tf.keras.optimizers.Adam(
+            learning_rate=.001),
         loss=f1_loss,
-        metrics=["acc", f1_loss],
+        metrics=["acc", f1],
     )
     print(model.summary())
     return model
@@ -455,15 +433,18 @@ model = get_model()
 checkpoint_path = 'model_save/model.keras'
 cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
-                                                 verbose=0)
+                                                 verbose=0,
+                                                 save_best_only=True,
+                                                 monitor=f1,
+                                                 mode="max")
 early_stopping = tf.keras.callbacks.EarlyStopping(
-    monitor=f1_loss, patience=3, verbose=0,
-    mode="min", restore_best_weights=True
+    monitor=f1, patience=3, verbose=0,
+    mode="max", restore_best_weights=True
 )
 
 plateau = tf.keras.callbacks.ReduceLROnPlateau(
-    monitor=f1_loss, factor=0.01, patience=3, verbose=0,
-    mode='min', min_delta=0.0001, cooldown=0, min_lr=0
+    monitor=f1, factor=0.01, patience=3, verbose=0,
+    mode='max', min_delta=0.0001, cooldown=0, min_lr=0
 )
 
 
@@ -473,27 +454,19 @@ plateau = tf.keras.callbacks.ReduceLROnPlateau(
 # model.fit(x=[z[0], z[2]], y=z[4], validation_data=([z[1], z[3]], z[5]), 
 #           epochs=2, batch_size=32, shuffle=True)
 model.fit_generator(generator=train_gen, validation_data=val_gen, 
-                    epochs=50,
-                   use_multiprocessing=True, workers=7, callbacks=[TqdmCallback(verbose=1), cp_callback, early_stopping, plateau])
+                    epochs=25,
+                    use_multiprocessing=True, workers=8, 
+                    callbacks=[TqdmCallback(verbose=1), plateau, early_stopping])
 
 test_ids = test_df["ID"]
+test_gen = DataGenerator(test_ids, bs = 1, test=True)
 
-test_gen = DataGenerator(test_ids, bs= 1, test=True)
 
-
-# In[32]:
 
 
 predictions = model.predict_generator(test_gen, verbose=1)
 
-
-
-
-
 sub = pd.DataFrame({"ID": test_df["ID"], target_col[0]: target_encoder.inverse_transform(np.argmax(predictions, axis=1))})
-
-
-
 
 count = {}
 for i in target_encoder.inverse_transform(np.argmax(predictions, axis=1)):
@@ -503,14 +476,5 @@ for i in target_encoder.inverse_transform(np.argmax(predictions, axis=1)):
 print(count)
 
 
-# In[44]:
-
-
 sub.to_csv("submission.csv", index=False)
-
-
-# In[ ]:
-
-
-
 
